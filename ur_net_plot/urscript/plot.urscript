@@ -1,0 +1,45 @@
+# Must setup canvas plane feature as variable
+
+def main():
+  canvas = p[-0.58515, 0.03970, 0.30974, -0.85272, -1.90720, -0.42911]
+
+  # Open socket to server (IP and PORT will be filled in by the Python script)
+  socket_open("{SERVER_IP}", {SERVER_PORT})
+
+  while True:
+    # Read 7 integers from the socket
+    params = socket_read_binary_integer(7)
+
+    # First value is the number of values we read, and the rest are the values
+    num_read = params[0]
+
+    if num_read > 0:
+      command_type = params[1]
+
+      if command_type == 1:
+        # Extract X, Y, Z from the parameters and convert to meters
+        x = params[2] / 10000.0
+        y = params[3] / 10000.0
+        z = params[4] / 10000.0
+
+        # Create pose in canvas coordinate system
+        pose_wrt_canvas = p[x, y, z, 0, 0, 0]
+        textmsg("moving to ", pose_wrt_canvas)
+
+        # Transform to base coordinate system
+        pose_wrt_base = pose_trans(canvas, pose_wrt_canvas)
+
+        # Move to the target position
+        movel(pose_wrt_base)
+
+        # Send back zero value to indicate command completion
+        socket_send_int(0)
+      end
+    end
+
+    sync()
+  end
+
+  # Close the socket when done
+  socket_close()
+end

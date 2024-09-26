@@ -1,0 +1,17 @@
+# Must setup canvas plane feature as variable
+
+def main():
+  # Open socket to server (IP and PORT will be filled in by the Python script)
+  socket_open("{SERVER_IP}", {SERVER_PORT})
+
+  while True:
+    # Read 7 integers from the socket
+    params = socket_read_binary_integer(7)
+    sync()
+  end
+
+  # Close the socket when done
+  socket_close()
+end
+
+main()
