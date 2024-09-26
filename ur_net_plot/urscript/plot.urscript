@@ -30,7 +30,7 @@ def main():
         pose_wrt_base = pose_trans(canvas, pose_wrt_canvas)
 
         # Move to the target position
-        movel(pose_wrt_base)
+        movel(pose_wrt_base, r=0.001)
 
         # Send back zero value to indicate command completion
         socket_send_int(0)

@@ -6,6 +6,8 @@ import threading
 from queue import Queue
 import importlib.resources
 
+CMD_MOVEL = 1
+
 
 coord_queue = Queue()
 
@@ -29,7 +31,7 @@ def robot_communication_thread(server_ip, server_port, robot_ip, coord_queue):
     """Handle communication with the robot."""
 
     # URScript with placeholders for server IP and port
-    script_res = importlib.resources.files('net_ur_plotter').joinpath('urscript/plot.urscript')
+    script_res = importlib.resources.files('ur_net_plot').joinpath('urscript/plot.urscript')
 
     with importlib.resources.as_file(script_res) as script_file_path:
         with open(script_file_path, 'r') as script_file:
@@ -65,14 +67,12 @@ def robot_communication_thread(server_ip, server_port, robot_ip, coord_queue):
 
         x, y, z = coords
 
-        # Prepare the command
-        # Command is 7 integers: [flag, x, y, z, 0, 0, command_type]
-        # flag = 1, command_type = 1
-        x_int = int(x * 10000)  # Convert meters to tenths of mm
+        # Convert meters to tenths of mm
+        x_int = int(x * 10000)
         y_int = int(y * 10000)
         z_int = int(z * 10000)
 
-        command = [1, x_int, y_int, z_int, 0, 0, 1]
+        command = [CMD_MOVEL, x_int, y_int, z_int, 0, 0, 0]
 
         # Pack the integers into binary format (big-endian, signed integers)
         data = b''.join(int.to_bytes(val, 4, byteorder='big', signed=True) for val in command)
@@ -83,11 +83,14 @@ def robot_communication_thread(server_ip, server_port, robot_ip, coord_queue):
 
             # Wait for robot to send back the zero value
             response = robot_conn.recv(4)
+
             if len(response) < 4:
                 print('Robot connection closed unexpectedly.')
                 break
+
             # Unpack the response
             result = int.from_bytes(response, byteorder='big', signed=True)
+
             if result != 0:
                 print('Robot reported error:', result)
         except socket.error as e:
@@ -114,7 +117,8 @@ def draw_square(draw_height):
 
 
 def draw_svg(svg_path, target_size, draw_height, lift_height=-0.05):
-    lines, width, height = vpype.read_svg(svg_path, quantization=1)
+    lines, width, height = vpype.read_svg(svg_path, quantization=2.5)
+    lines = vpype.squiggles(lines, 0, 1, 10)
 
     # Rescale the SVG to fit the target size
     target_width = target_size
@@ -130,6 +134,7 @@ def draw_svg(svg_path, target_size, draw_height, lift_height=-0.05):
             coord_queue.put((x, y, draw_height))
 
         coord_queue.put((x, y, lift_height))
+
 
 def main():
     parser = argparse.ArgumentParser(description='Robot Server')
@@ -148,7 +153,7 @@ def main():
     robot_thread = threading.Thread(target=robot_communication_thread, args=(args.server_ip, args.server_port, args.robot_ip, coord_queue))
     robot_thread.start()
 
-    draw_svg(svg_path, 0.3, 0.002)
+    draw_svg(svg_path, 0.3, 0.003)
 
     # Signal the thread to exit after all commands are sent
     coord_queue.put(None)
